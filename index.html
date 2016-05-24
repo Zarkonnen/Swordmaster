@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Template</title>
+        <script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
+        <script src="http://code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
+    </head>
+    <body>
+        <canvas width="800" height="600" id="gameCanvas"></canvas>
+        <script>
+
+/** THE GAME ITSELF **********************************************************/
+
+const directions = ["N", "S", "E", "W"];
+const stances = ["F", "B"];
+const dir_info = {
+    "N": { dx:  0, dy: -1, toLeft: "W", toRight: "E", arrow: "^" },
+    "S": { dx:  0, dy:  1, toLeft: "E", toRight: "W", arrow: "v" },
+    "E": { dx:  1, dy:  0, toLeft: "N", toRight: "S", arrow: ">" },
+    "W": { dx: -1, dy:  0, toLeft: "S", toRight: "N", arrow: "<" }
+};
+const stance_info = {
+    "F": { mult: 1 },
+    "B": { mult: -1 }
+};
+
+var player = {
+    x: 10,
+    y: 10,
+    facing: "N",
+    stance: "B"
+};
+
+var tileFX = [];
+var moveName = "";
+
+var moveDir = null;
+var swordDir = null;
+
+const GRID_SZ = 40;
+const MAP_W = 20;
+const MAP_H = 15;
+
+const MOVES_BASE = [
+    {
+        facing: "N",
+        stance: "F",
+        move: "N",
+        sword: "N",
+        name: "Frantic Lunge",
+        dx: 0,
+        dy: -1,
+        newStance: "F",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 2,
+                def: 0
+            },
+            {
+                dx: 0,
+                dy: -2,
+                dmg: 2,
+                def: 0
+            }
+        ]        
+    },
+    {
+        facing: "N",
+        stance: "B",
+        move: "N",
+        sword: "N",
+        name: "Strong Lunge",
+        dx: 0,
+        dy: -1,
+        newStance: "F",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 4,
+                def: 0
+            },
+            {
+                dx: 0,
+                dy: -2,
+                dmg: 3,
+                def: 0
+            }
+        ]        
+    },
+    {
+        facing: "N",
+        stance: "F",
+        move: "N",
+        sword: "S",
+        name: "Guarded Advance",
+        dx: 0,
+        dy: -1,
+        newStance: "B",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 0,
+                def: 3
+            }
+        ]        
+    },
+    {
+        facing: "N",
+        stance: "B",
+        move: "N",
+        sword: "S",
+        name: "Strong Advance",
+        dx: 0,
+        dy: -1,
+        newStance: "F",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 1,
+                def: 2
+            }
+        ]        
+    }
+    /*{
+        facing: "N",
+        stance: "B",
+        move: "N",
+        sword: "S",
+        name: "Bash",
+        dx: 0,
+        dy: -1,
+        newStance: "F",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 1,
+                def: 1,
+                bash: "N"
+            }
+        ]        
+    }*/
+];
+
+const MOVES = [];
+MOVES_BASE.forEach(function(m) {
+    for (var i = 0; i < 4; i++) {
+        MOVES.push(JSON.parse(JSON.stringify(m)));
+        m.facing = dir_info[m.facing].toLeft;
+        m.move = dir_info[m.move].toLeft;
+        m.sword = dir_info[m.sword].toLeft;
+        m.newFacing = dir_info[m.newFacing].toLeft;
+        var dx = m.dx;
+        var dy = m.dy;
+        m.dx = dy;
+        m.dy = -dx;
+        for (var j = 0; j < m.tileFX.length; j++) {
+            var tfx = m.tileFX[j];
+            var dx = tfx.dx;
+            var dy = tfx.dy;
+            tfx.dx = dy;
+            tfx.dy = -dx;
+            if (tfx.bash) {
+                tfx.bash = dir_info[tfx.bash].toLeft;
+            }
+        }
+    }
+});
+
+const SITUATION_TO_MOVE = {};
+for (var i = 0; i < directions.length; i++) {
+    for (var j = 0; j < directions.length; j++) {
+        for (var k = 0; k < directions.length; k++) {
+            for (var l = 0; l < stances.length; l++) {
+                var facing = directions[i];
+                var move = directions[j];
+                var sword = directions[k];
+                var stance = stances[l];
+                var situation = stance + facing + move + sword;
+                SITUATION_TO_MOVE[situation] = {
+                    facing: facing,
+                    stance: stance,
+                    move: move,
+                    sword: sword,
+                    name: "Move",
+                    dx: dir_info[move].dx,
+                    dy: dir_info[move].dy,
+                    newStance: "B",
+                    newFacing: move,
+                    tileFX: []
+                };
+            }
+        }
+    }
+}
+MOVES.forEach(function(m) {
+    SITUATION_TO_MOVE[m.stance + m.facing + m.move + m.sword] = m;
+});
+
+function input(msSinceLastUpdate) {
+    keys.forEach(function(k) {
+        switch (k) {
+            case "w": moveDir = "N"; break;
+            case "s": moveDir = "S"; break;
+            case "a": moveDir = "W"; break;
+            case "d": moveDir = "E"; break;
+            
+            case "i": swordDir = "N"; break;
+            case "k": swordDir = "S"; break;
+            case "j": swordDir = "W"; break;
+            case "l": swordDir = "E"; break;
+        }
+    });
+    keys = [];
+}
+
+function update(msSinceLastUpdate) {
+    if (moveDir && swordDir) {
+        var situation = player.stance + player.facing + moveDir + swordDir;
+        var move = SITUATION_TO_MOVE[situation];
+        player.x += move.dx;
+        player.y += move.dy;
+        player.stance = move.newStance;
+        player.facing = move.newFacing;
+        tileFX = [];
+        move.tileFX.forEach(function(tfx) {
+            tileFX.push({
+                x: player.x + tfx.dx,
+                y: player.y + tfx.dy,
+                dmg: tfx.dmg,
+                def: tfx.def,
+                bash: tfx.bash
+            });
+        });
+        moveName = move.name;
+        moveDir = null;
+        swordDir = null;
+    }
+}
+
+function draw() {
+    c.font = "18px Verdana";
+    c.fillStyle = "#eeeeee";
+    c.fillRect(0, 0, GRID_SZ * MAP_W, GRID_SZ * MAP_H);
+    for (var y = 0; y < MAP_H; y++) {
+        for (var x = 0; x < MAP_W; x++) {
+            if ((x + y) % 2 == 0) {
+                c.fillStyle = "#bbbbbb";
+                c.fillRect(x * GRID_SZ, y * GRID_SZ, GRID_SZ, GRID_SZ);
+            }
+            if (moveDir && player.x + dir_info[moveDir].dx == x && player.y + dir_info[moveDir].dy == y) {
+                c.fillStyle = "#9999bb";
+                c.fillRect(x * GRID_SZ, y * GRID_SZ, GRID_SZ, GRID_SZ);
+            }
+            if (swordDir && player.x + dir_info[swordDir].dx == x && player.y + dir_info[swordDir].dy == y) {
+                c.fillStyle = "#bb9999";
+                c.fillRect(x * GRID_SZ, y * GRID_SZ, GRID_SZ, GRID_SZ);
+            }
+        }
+    }
+    c.fillStyle = "#005500";
+    c.beginPath();
+    c.arc(
+        player.x * GRID_SZ + GRID_SZ / 2 + dir_info[player.facing].dx * 3 * stance_info[player.stance].mult,
+        player.y * GRID_SZ + GRID_SZ / 2 + dir_info[player.facing].dy * 3 * stance_info[player.stance].mult,
+        GRID_SZ / 2 - 5, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = "#ffffff";
+    c.fillText(dir_info[player.facing].arrow, player.x * GRID_SZ + 14, player.y * GRID_SZ + 26);
+    c.fillStyle = "#000000";
+    c.fillText(moveName, 3, 19);
+    
+    // Render fx
+    tileFX.forEach(function(tfx) {
+        var x = tfx.x * GRID_SZ;
+        var y = tfx.y * GRID_SZ;
+        if (tfx.dmg) {
+            c.fillStyle = "#550000";
+            c.fillText(tfx.dmg, x + 1, y + 16);
+        }
+        if (tfx.def) {
+            c.fillStyle = "#000055";
+            c.fillText(tfx.def + "", x + 27, y + 36);
+        }
+        if (tfx.bash) {
+            c.fillStyle = "#550000";
+            c.fillText(dir_info[tfx.bash].arrow, x + 14, y + 26);
+        }
+    });
+}
+
+
+/** THE GAME "ENGINE" ********************************************************/
+var canvas = document.getElementById("gameCanvas");
+var c = canvas.getContext("2d");
+var keys = [];
+var click = null;
+
+// Listen for key presses.
+function canvasKeyPress(e) {
+    keys.push(String.fromCharCode(e.which));
+}
+
+$('body').keypress(canvasKeyPress);
+
+// Listen for clicks.
+function canvasClick(e) {
+    click = { "x": e.offsetX, "y": e.offsetY };
+}
+
+$('#gameCanvas').click(canvasClick);
+
+// Set up game loop.
+var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
+var lastUpdate = new Date().getTime();
+
+function nextFrame() {
+    var currentTime = new Date().getTime();
+    input(currentTime - lastUpdate);
+    click = null;
+    update(currentTime - lastUpdate);
+    draw();
+    lastUpdate = currentTime;
+    requestAnimationFrame(nextFrame);
+}
+
+// Once everything is set up, start game loop.
+requestAnimationFrame(nextFrame);
+        </script>
+    </body>
+</html>

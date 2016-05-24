@@ -14,10 +14,10 @@
 const directions = ["N", "S", "E", "W"];
 const stances = ["F", "B"];
 const dir_info = {
-    "N": { dx:  0, dy: -1, toLeft: "W", toRight: "E", arrow: "^" },
-    "S": { dx:  0, dy:  1, toLeft: "E", toRight: "W", arrow: "v" },
-    "E": { dx:  1, dy:  0, toLeft: "N", toRight: "S", arrow: ">" },
-    "W": { dx: -1, dy:  0, toLeft: "S", toRight: "N", arrow: "<" }
+    "N": { dx:  0, dy: -1, toLeft: "W", toRight: "E", arrow: "^", hMirror: "N" },
+    "S": { dx:  0, dy:  1, toLeft: "E", toRight: "W", arrow: "v", hMirror: "S" },
+    "E": { dx:  1, dy:  0, toLeft: "N", toRight: "S", arrow: ">", hMirror: "W" },
+    "W": { dx: -1, dy:  0, toLeft: "S", toRight: "N", arrow: "<", hMirror: "E" }
 };
 const stance_info = {
     "F": { mult: 1 },
@@ -36,14 +36,17 @@ var moveName = "";
 
 var moveDir = null;
 var swordDir = null;
+var moveOnly = false;
 
 const GRID_SZ = 40;
 const MAP_W = 20;
 const MAP_H = 15;
 
 const MOVES_BASE = [
+    // F, Move and sword forwards
     {
         facing: "N",
+        movingIntoEnemy: false,
         stance: "F",
         move: "N",
         sword: "N",
@@ -69,6 +72,424 @@ const MOVES_BASE = [
     },
     {
         facing: "N",
+        movingIntoEnemy: true,
+        stance: "F",
+        move: "N",
+        sword: "N",
+        name: "Rush",
+        dx: 0,
+        dy: -1,
+        newStance: "F",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: 0,
+                dmg: 2,
+                def: 0,
+                bash: "N"
+            }
+        ]        
+    },
+    // F, Move forwards and sword side
+    {
+        facing: "N",
+        movingIntoEnemy: false,
+        stance: "F",
+        move: "N",
+        sword: "E",
+        name: "Wide Swipe",
+        dx: 0,
+        dy: -1,
+        newStance: "F",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 1,
+                dy: 0,
+                dmg: 3,
+                def: 1
+            }
+        ]      
+    },
+    {
+        facing: "N",
+        movingIntoEnemy: true,
+        stance: "F",
+        move: "N",
+        sword: "E",
+        name: "Gut",
+        dx: 0,
+        dy: 0,
+        newStance: "F",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 3,
+                def: 0
+            }
+        ]        
+    },
+    // F, Move forwards and sword back
+    {
+        facing: "N",
+        movingIntoEnemy: false,
+        stance: "F",
+        move: "N",
+        sword: "S",
+        name: "Guarded Advance",
+        dx: 0,
+        dy: -1,
+        newStance: "B",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 0,
+                def: 3
+            }
+        ]        
+    },
+    {
+        facing: "N",
+        movingIntoEnemy: true,
+        stance: "F",
+        move: "N",
+        sword: "S",
+        name: "Push",
+        dx: 0,
+        dy: 0,
+        newStance: "B",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 1,
+                def: 0,
+                bash: "N"
+            }
+        ]        
+    },
+    // F, Move side and sword forwards
+    {
+        facing: "N",
+        movingIntoEnemy: false,
+        stance: "F",
+        move: "E",
+        sword: "N",
+        name: "Sidestep",
+        dx: 1,
+        dy: 0,
+        newStance: "F",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 1,
+                def: 2
+            }
+        ]        
+    },
+    {
+        facing: "N",
+        movingIntoEnemy: true,
+        stance: "F",
+        move: "E",
+        sword: "N",
+        name: "Awkward Bump",
+        dx: 0,
+        dy: 0,
+        newStance: "B",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 1,
+                def: 0
+            },
+            {
+                dx: 1,
+                dy: 0,
+                dmg: 0,
+                def: 0,
+                bash: "E"
+            }
+        ]        
+    },
+    // F, Move side and sword side, same side
+    {
+        facing: "N",
+        movingIntoEnemy: false,
+        stance: "F",
+        move: "E",
+        sword: "E",
+        name: "Side Stab",
+        dx: 1,
+        dy: 0,
+        newStance: "F",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 1,
+                dy: 0,
+                dmg: 3,
+                def: 0
+            }
+        ]        
+    },
+    {
+        facing: "N",
+        movingIntoEnemy: true,
+        stance: "F",
+        move: "E",
+        sword: "E",
+        name: "Shank",
+        dx: 0,
+        dy: 0,
+        newStance: "B",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 1,
+                dy: 0,
+                dmg: 3,
+                def: 0
+            }
+        ]        
+    },
+    // F, Move side and sword side, opposite sides
+    {
+        facing: "N",
+        movingIntoEnemy: false,
+        stance: "F",
+        move: "E",
+        sword: "W",
+        name: "Side Skip",
+        dx: 1,
+        dy: 0,
+        newStance: "F",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: -1,
+                dy: 0,
+                dmg: 1,
+                def: 0
+            }
+        ]        
+    },
+    {
+        facing: "N",
+        movingIntoEnemy: true,
+        stance: "F",
+        move: "E",
+        sword: "W",
+        name: "Side Bump",
+        dx: 0,
+        dy: 0,
+        newStance: "F",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 1,
+                dy: 0,
+                dmg: 0,
+                def: 0,
+                bash: "E"
+            }
+        ]        
+    },
+    // F, Move side and sword back
+    {
+        facing: "N",
+        movingIntoEnemy: false,
+        stance: "F",
+        move: "E",
+        sword: "S",
+        name: "Evade",
+        dx: 1,
+        dy: 0,
+        newStance: "B",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 0,
+                def: 2
+            }
+        ]        
+    },
+    {
+        facing: "N",
+        movingIntoEnemy: true,
+        stance: "F",
+        move: "E",
+        sword: "S",
+        name: "Parry Bump",
+        dx: 0,
+        dy: 0,
+        newStance: "F",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 1,
+                dy: 0,
+                dmg: 0,
+                def: 0,
+                bash: "E"
+            },
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 0,
+                def: 1
+            }
+        ]        
+    },
+    // F, Move back and sword forward
+    {
+        facing: "N",
+        movingIntoEnemy: false,
+        stance: "F",
+        move: "S",
+        sword: "N",
+        name: "En Garde",
+        dx: 0,
+        dy: 0,
+        newStance: "B",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 0,
+                def: 3
+            }
+        ]        
+    },
+    {
+        facing: "N",
+        movingIntoEnemy: true,
+        stance: "F",
+        move: "S",
+        sword: "N",
+        name: "Backwards Stumble",
+        dx: 0,
+        dy: 0,
+        newStance: "B",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: 1,
+                dmg: 0,
+                def: 0,
+                bash: "S"
+            },
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 0,
+                def: 1
+            }
+        ]
+    },
+    // F, Move back and sword side
+    {
+        facing: "N",
+        movingIntoEnemy: false,
+        stance: "F",
+        move: "S",
+        sword: "E",
+        name: "Side Parry",
+        dx: 0,
+        dy: 0,
+        newStance: "B",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 1,
+                dy: 0,
+                dmg: 0,
+                def: 2
+            }
+        ]        
+    },
+    {
+        facing: "N",
+        movingIntoEnemy: true,
+        stance: "F",
+        move: "S",
+        sword: "E",
+        name: "Spin Around",
+        dx: 0,
+        dy: 0,
+        newStance: "F",
+        newFacing: "S",
+        tileFX: [
+            {
+                dx: 1,
+                dy: 0,
+                dmg: 1,
+                def: 0
+            },
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 1,
+                def: 0
+            }
+        ]
+    },
+    // F, Move back and sword back
+    {
+        facing: "N",
+        movingIntoEnemy: false,
+        stance: "F",
+        move: "S",
+        sword: "S",
+        name: "Retreat",
+        dx: 0,
+        dy: 1,
+        newStance: "F",
+        newFacing: "N",
+        tileFX: []        
+    },
+    {
+        facing: "N",
+        movingIntoEnemy: true,
+        stance: "F",
+        move: "S",
+        sword: "S",
+        name: "Reverse Stab",
+        dx: 0,
+        dy: 0,
+        newStance: "B",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: 1,
+                dmg: 1,
+                def: 0,
+                bash: "S"
+            }
+        ]
+    },
+    
+    // B
+    
+    // B, Move and sword forwards
+    {
+        facing: "N",
+        movingIntoEnemy: false,
         stance: "B",
         move: "N",
         sword: "N",
@@ -94,25 +515,69 @@ const MOVES_BASE = [
     },
     {
         facing: "N",
-        stance: "F",
+        movingIntoEnemy: true,
+        stance: "B",
         move: "N",
-        sword: "S",
-        name: "Guarded Advance",
+        sword: "N",
+        name: "Skewer",
         dx: 0,
-        dy: -1,
-        newStance: "B",
+        dy: 0,
+        newStance: "F",
         newFacing: "N",
         tileFX: [
             {
                 dx: 0,
                 dy: -1,
-                dmg: 0,
-                def: 3
+                dmg: 5,
+                def: 0
             }
         ]        
     },
+    // B, Move forwards and sword side
     {
         facing: "N",
+        movingIntoEnemy: false,
+        stance: "B",
+        move: "N",
+        sword: "E",
+        name: "Side Swipe",
+        dx: 0,
+        dy: -1,
+        newStance: "F",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 1,
+                dy: 0,
+                dmg: 2,
+                def: 2
+            }
+        ]      
+    },
+    {
+        facing: "N",
+        movingIntoEnemy: true,
+        stance: "B",
+        move: "N",
+        sword: "E",
+        name: "Slash",
+        dx: 0,
+        dy: 0,
+        newStance: "F",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 3,
+                def: 2
+            }
+        ]        
+    },
+    // B, Move forwards and sword back
+    {
+        facing: "N",
+        movingIntoEnemy: false,
         stance: "B",
         move: "N",
         sword: "S",
@@ -129,16 +594,17 @@ const MOVES_BASE = [
                 def: 2
             }
         ]        
-    }
-    /*{
+    },
+    {
         facing: "N",
+        movingIntoEnemy: true,
         stance: "B",
         move: "N",
         sword: "S",
         name: "Bash",
         dx: 0,
-        dy: -1,
-        newStance: "F",
+        dy: 0,
+        newStance: "B",
         newFacing: "N",
         tileFX: [
             {
@@ -149,35 +615,320 @@ const MOVES_BASE = [
                 bash: "N"
             }
         ]        
-    }*/
+    },
+    // B, Move side and sword forwards
+    {
+        facing: "N",
+        movingIntoEnemy: false,
+        stance: "B",
+        move: "E",
+        sword: "N",
+        name: "Swipe and Turn",
+        dx: 0,
+        dy: 0,
+        newStance: "B",
+        newFacing: "E",
+        tileFX: [
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 1,
+                def: 1
+            }
+        ]        
+    },
+    {
+        facing: "N",
+        movingIntoEnemy: true,
+        stance: "B",
+        move: "E",
+        sword: "N",
+        name: "Face the Enemy",
+        dx: 0,
+        dy: 0,
+        newStance: "B",
+        newFacing: "E",
+        tileFX: [
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 2,
+                def: 0
+            }
+        ]        
+    },
+    // B, Move side and sword side, same side
+    {
+        facing: "N",
+        movingIntoEnemy: false,
+        stance: "B",
+        move: "E",
+        sword: "E",
+        name: "Turn and Stab",
+        dx: 0,
+        dy: 0,
+        newStance: "B",
+        newFacing: "E",
+        tileFX: [
+            {
+                dx: 1,
+                dy: 0,
+                dmg: 2,
+                def: 0
+            }
+        ]        
+    },
+    {
+        facing: "N",
+        movingIntoEnemy: true,
+        stance: "B",
+        move: "E",
+        sword: "E",
+        name: "Spin Towards",
+        dx: 0,
+        dy: 0,
+        newStance: "B",
+        newFacing: "E",
+        tileFX: [
+            {
+                dx: 1,
+                dy: 0,
+                dmg: 1,
+                def: 1
+            }
+        ]        
+    },
+    // B, Move side and sword side, opposite sides
+    {
+        facing: "N",
+        movingIntoEnemy: false,
+        stance: "B",
+        move: "E",
+        sword: "W",
+        name: "Flourish Turn",
+        dx: 0,
+        dy: 0,
+        newStance: "F",
+        newFacing: "E",
+        tileFX: []        
+    },
+    {
+        facing: "N",
+        movingIntoEnemy: true,
+        stance: "B",
+        move: "E",
+        sword: "W",
+        name: "Awkward Turn",
+        dx: 0,
+        dy: 0,
+        newStance: "F",
+        newFacing: "E",
+        tileFX: []        
+    },
+    // B, Move side and sword back
+    {
+        facing: "N",
+        movingIntoEnemy: false,
+        stance: "B",
+        move: "E",
+        sword: "S",
+        name: "Turn and Parry",
+        dx: 0,
+        dy: 0,
+        newStance: "B",
+        newFacing: "E",
+        tileFX: [
+            {
+                dx: 1,
+                dy: 0,
+                dmg: 0,
+                def: 2
+            }
+        ]        
+    },
+    {
+        facing: "N",
+        movingIntoEnemy: true,
+        stance: "B",
+        move: "E",
+        sword: "S",
+        name: "Turn and Engage",
+        dx: 0,
+        dy: 0,
+        newStance: "B",
+        newFacing: "E",
+        tileFX: [
+            {
+                dx: 1,
+                dy: 0,
+                dmg: 0,
+                def: 2
+            }
+        ]        
+    },
+    // B, Move back and sword forward
+    {
+        facing: "N",
+        movingIntoEnemy: false,
+        stance: "B",
+        move: "S",
+        sword: "N",
+        name: "Back Up",
+        dx: 0,
+        dy: 1,
+        newStance: "B",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 0,
+                def: 1
+            }
+        ]        
+    },
+    {
+        facing: "N",
+        movingIntoEnemy: true,
+        stance: "B",
+        move: "S",
+        sword: "N",
+        name: "Back Bump",
+        dx: 0,
+        dy: 0,
+        newStance: "B",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: 1,
+                dmg: 0,
+                def: 0,
+                bash: "S"
+            }
+        ]
+    },
+    // B, Move back and sword side
+    {
+        facing: "N",
+        movingIntoEnemy: false,
+        stance: "B",
+        move: "S",
+        sword: "E",
+        name: "Turn Around",
+        dx: 0,
+        dy: 0,
+        newStance: "B",
+        newFacing: "S",
+        tileFX: []        
+    },
+    {
+        facing: "N",
+        movingIntoEnemy: true,
+        stance: "B",
+        move: "S",
+        sword: "E",
+        name: "Bump and Slice",
+        dx: 0,
+        dy: 0,
+        newStance: "B",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 1,
+                dy: 0,
+                dmg: 1,
+                def: 0
+            },
+            {
+                dx: 0,
+                dy: -1,
+                dmg: 0,
+                def: 0,
+                bash: "S"
+            }
+        ]
+    },
+    // B, Move back and sword back
+    {
+        facing: "N",
+        movingIntoEnemy: false,
+        stance: "B",
+        move: "S",
+        sword: "S",
+        name: "Step Back",
+        dx: 0,
+        dy: 1,
+        newStance: "B",
+        newFacing: "N",
+        tileFX: []        
+    },
+    {
+        facing: "N",
+        movingIntoEnemy: true,
+        stance: "B",
+        move: "S",
+        sword: "S",
+        name: "Reverse Stab",
+        dx: 0,
+        dy: 0,
+        newStance: "B",
+        newFacing: "N",
+        tileFX: [
+            {
+                dx: 0,
+                dy: 1,
+                dmg: 1,
+                def: 0,
+                bash: "S"
+            }
+        ]
+    }
 ];
 
 const MOVES = [];
-MOVES_BASE.forEach(function(m) {
-    for (var i = 0; i < 4; i++) {
-        MOVES.push(JSON.parse(JSON.stringify(m)));
-        m.facing = dir_info[m.facing].toLeft;
-        m.move = dir_info[m.move].toLeft;
-        m.sword = dir_info[m.sword].toLeft;
-        m.newFacing = dir_info[m.newFacing].toLeft;
-        var dx = m.dx;
-        var dy = m.dy;
-        m.dx = dy;
-        m.dy = -dx;
-        for (var j = 0; j < m.tileFX.length; j++) {
-            var tfx = m.tileFX[j];
-            var dx = tfx.dx;
-            var dy = tfx.dy;
-            tfx.dx = dy;
-            tfx.dy = -dx;
-            if (tfx.bash) {
-                tfx.bash = dir_info[tfx.bash].toLeft;
+MOVES_BASE.forEach(function(baseM) {
+    var mirroredM = JSON.parse(JSON.stringify(baseM));
+    mirroredM.move = dir_info[baseM.move].hMirror;
+    mirroredM.sword = dir_info[baseM.sword].hMirror;
+    mirroredM.newFacing = dir_info[baseM.newFacing].hMirror;
+    mirroredM.dx = -mirroredM.dx;
+    for (var j = 0; j < mirroredM.tileFX.length; j++) {
+        var tfx = mirroredM.tileFX[j];
+        tfx.dx = -tfx.dx;
+        if (tfx.bash) {
+            tfx.bash = dir_info[tfx.bash].hMirror;
+        }
+    }
+    
+    for (var mi = 0; mi < 2; mi++) {
+        var m = mi == 0 ? baseM : mirroredM;
+        for (var i = 0; i < 4; i++) {
+            MOVES.push(JSON.parse(JSON.stringify(m)));
+            m.facing = dir_info[m.facing].toLeft;
+            m.move = dir_info[m.move].toLeft;
+            m.sword = dir_info[m.sword].toLeft;
+            m.newFacing = dir_info[m.newFacing].toLeft;
+            var dx = m.dx;
+            var dy = m.dy;
+            m.dx = dy;
+            m.dy = -dx;
+            for (var j = 0; j < m.tileFX.length; j++) {
+                var tfx = m.tileFX[j];
+                var dx = tfx.dx;
+                var dy = tfx.dy;
+                tfx.dx = dy;
+                tfx.dy = -dx;
+                if (tfx.bash) {
+                    tfx.bash = dir_info[tfx.bash].toLeft;
+                }
             }
         }
     }
 });
 
 const SITUATION_TO_MOVE = {};
+const MOVE_ONLY_TO_MOVE = {};
 for (var i = 0; i < directions.length; i++) {
     for (var j = 0; j < directions.length; j++) {
         for (var k = 0; k < directions.length; k++) {
@@ -186,12 +937,12 @@ for (var i = 0; i < directions.length; i++) {
                 var move = directions[j];
                 var sword = directions[k];
                 var stance = stances[l];
-                var situation = stance + facing + move + sword;
-                SITUATION_TO_MOVE[situation] = {
+                var situation = stance + facing + move + "false";
+                MOVE_ONLY_TO_MOVE[situation] = {
                     facing: facing,
+                    movingIntoEnemy: false,
                     stance: stance,
                     move: move,
-                    sword: sword,
                     name: "Move",
                     dx: dir_info[move].dx,
                     dy: dir_info[move].dy,
@@ -204,8 +955,29 @@ for (var i = 0; i < directions.length; i++) {
     }
 }
 MOVES.forEach(function(m) {
-    SITUATION_TO_MOVE[m.stance + m.facing + m.move + m.sword] = m;
+    var situation = m.stance + m.facing + m.move + m.sword + m.movingIntoEnemy;
+    SITUATION_TO_MOVE[situation] = m;
 });
+for (var i = 0; i < directions.length; i++) {
+    for (var j = 0; j < directions.length; j++) {
+        for (var k = 0; k < directions.length; k++) {
+            for (var l = 0; l < stances.length; l++) {
+                var facing = directions[i];
+                var move = directions[j];
+                var sword = directions[k];
+                var stance = stances[l];
+                var situationA = stance + facing + move + sword + "false";
+                if (!SITUATION_TO_MOVE[situationA]) {
+                    console.log("Missing: " + situationA);
+                }
+                var situationB = stance + facing + move + sword + "true";
+                if (!SITUATION_TO_MOVE[situationB]) {
+                    console.log("Missing: " + situationB);
+                }
+            }
+        }
+    }
+}
 
 function input(msSinceLastUpdate) {
     keys.forEach(function(k) {
@@ -219,15 +991,23 @@ function input(msSinceLastUpdate) {
             case "k": swordDir = "S"; break;
             case "j": swordDir = "W"; break;
             case "l": swordDir = "E"; break;
+            
+            case " ": moveOnly = !moveOnly; break;
         }
     });
     keys = [];
 }
 
 function update(msSinceLastUpdate) {
-    if (moveDir && swordDir) {
-        var situation = player.stance + player.facing + moveDir + swordDir;
-        var move = SITUATION_TO_MOVE[situation];
+    if (moveDir && (swordDir || moveOnly)) {
+        var move = null;
+        if (moveOnly) {
+            var situation = player.stance + player.facing + moveDir + "false"; // No enemies for now.
+            move = MOVE_ONLY_TO_MOVE[situation];
+        } else {
+            var situation = player.stance + player.facing + moveDir + swordDir + "false"; // No enemies for now.
+            move = SITUATION_TO_MOVE[situation];
+        }
         player.x += move.dx;
         player.y += move.dy;
         player.stance = move.newStance;
@@ -268,15 +1048,18 @@ function draw() {
             }
         }
     }
-    c.fillStyle = "#005500";
+    c.fillStyle = moveOnly ? "#003300" : "#005500";
     c.beginPath();
     c.arc(
-        player.x * GRID_SZ + GRID_SZ / 2 + dir_info[player.facing].dx * 3 * stance_info[player.stance].mult,
-        player.y * GRID_SZ + GRID_SZ / 2 + dir_info[player.facing].dy * 3 * stance_info[player.stance].mult,
+        player.x * GRID_SZ + GRID_SZ / 2,// + dir_info[player.facing].dx * 3 * stance_info[player.stance].mult,
+        player.y * GRID_SZ + GRID_SZ / 2,// + dir_info[player.facing].dy * 3 * stance_info[player.stance].mult,
         GRID_SZ / 2 - 5, 0, Math.PI * 2);
     c.fill();
     c.fillStyle = "#ffffff";
     c.fillText(dir_info[player.facing].arrow, player.x * GRID_SZ + 14, player.y * GRID_SZ + 26);
+    if (player.stance == "F") {
+        c.fillText(dir_info[player.facing].arrow, player.x * GRID_SZ + 14 - dir_info[player.facing].dx * 5, player.y * GRID_SZ + 26 - dir_info[player.facing].dy * 5);
+    }
     c.fillStyle = "#000000";
     c.fillText(moveName, 3, 19);
     

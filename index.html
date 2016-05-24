@@ -31,6 +31,14 @@ var player = {
     stance: "B"
 };
 
+var enemies = [
+    {
+        x: 8,
+        y: 10,
+        type: "crate"
+    }
+];
+
 var tileFX = [];
 var moveName = "";
 
@@ -222,13 +230,13 @@ const MOVES_BASE = [
             }
         ]        
     },
-    // F, Move side and sword side, same side
+    // F, Move side and sword side, opposite sides
     {
         facing: "N",
         movingIntoEnemy: false,
         stance: "F",
         move: "E",
-        sword: "E",
+        sword: "W",
         name: "Side Stab",
         dx: 1,
         dy: 0,
@@ -248,7 +256,7 @@ const MOVES_BASE = [
         movingIntoEnemy: true,
         stance: "F",
         move: "E",
-        sword: "E",
+        sword: "W",
         name: "Shank",
         dx: 0,
         dy: 0,
@@ -263,24 +271,24 @@ const MOVES_BASE = [
             }
         ]        
     },
-    // F, Move side and sword side, opposite sides
+    // F, Move side and sword side, same side
     {
         facing: "N",
         movingIntoEnemy: false,
         stance: "F",
         move: "E",
-        sword: "W",
-        name: "Side Skip",
-        dx: 1,
+        sword: "E",
+        name: "Turn and Slice",
+        dx: 0,
         dy: 0,
         newStance: "F",
-        newFacing: "N",
+        newFacing: "E",
         tileFX: [
             {
-                dx: -1,
+                dx: 1,
                 dy: 0,
                 dmg: 1,
-                def: 0
+                def: 1
             }
         ]        
     },
@@ -289,19 +297,18 @@ const MOVES_BASE = [
         movingIntoEnemy: true,
         stance: "F",
         move: "E",
-        sword: "W",
-        name: "Side Bump",
+        sword: "E",
+        name: "Turn and Stab",
         dx: 0,
         dy: 0,
         newStance: "F",
-        newFacing: "N",
+        newFacing: "E",
         tileFX: [
             {
                 dx: 1,
                 dy: 0,
-                dmg: 0,
-                def: 0,
-                bash: "E"
+                dmg: 1,
+                def: 1
             }
         ]        
     },
@@ -1001,11 +1008,18 @@ function input(msSinceLastUpdate) {
 function update(msSinceLastUpdate) {
     if (moveDir && (swordDir || moveOnly)) {
         var move = null;
+        var movingIntoEnemy = enemies.some(function(e) {
+            return e.x == player.x + dir_info[moveDir].dx && e.y == player.y + dir_info[moveDir].dy;
+        });
+        if (moveOnly && movingIntoEnemy) {
+            moveOnly = false;
+            return;
+        }
         if (moveOnly) {
-            var situation = player.stance + player.facing + moveDir + "false"; // No enemies for now.
+            var situation = player.stance + player.facing + moveDir + movingIntoEnemy; // No enemies for now.
             move = MOVE_ONLY_TO_MOVE[situation];
         } else {
-            var situation = player.stance + player.facing + moveDir + swordDir + "false"; // No enemies for now.
+            var situation = player.stance + player.facing + moveDir + swordDir + movingIntoEnemy; // No enemies for now.
             move = SITUATION_TO_MOVE[situation];
         }
         player.x += move.dx;
@@ -1021,6 +1035,15 @@ function update(msSinceLastUpdate) {
                 def: tfx.def,
                 bash: tfx.bash
             });
+            if (tfx.bash) {
+                var bashedEnemy = enemies.filter(function(e) {
+                    return e.x == player.x + tfx.dx && e.y == player.y + tfx.dy;
+                });
+                if (bashedEnemy.length > 0) {
+                    bashedEnemy[0].x += dir_info[tfx.bash].dx;
+                    bashedEnemy[0].y += dir_info[tfx.bash].dy;
+                }
+            }
         });
         moveName = move.name;
         moveDir = null;
@@ -1048,11 +1071,15 @@ function draw() {
             }
         }
     }
+    enemies.forEach(function(e) {
+        c.fillStyle = "#aa6633";
+        c.fillRect(e.x * GRID_SZ + 5, e.y * GRID_SZ + 5, GRID_SZ - 10, GRID_SZ - 10);
+    });
     c.fillStyle = moveOnly ? "#003300" : "#005500";
     c.beginPath();
     c.arc(
-        player.x * GRID_SZ + GRID_SZ / 2,// + dir_info[player.facing].dx * 3 * stance_info[player.stance].mult,
-        player.y * GRID_SZ + GRID_SZ / 2,// + dir_info[player.facing].dy * 3 * stance_info[player.stance].mult,
+        player.x * GRID_SZ + GRID_SZ / 2,
+        player.y * GRID_SZ + GRID_SZ / 2,
         GRID_SZ / 2 - 5, 0, Math.PI * 2);
     c.fill();
     c.fillStyle = "#ffffff";
